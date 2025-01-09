@@ -1,0 +1,15 @@
+{
+  "minecraft:grass": 39168,
+  "minecraft:water": 255,
+  "minecraft:leaves": 26112,
+  "minecraft:leaves2": 26112,
+  "minecraft:stone": 8421504,
+  "minecraft:gravel": 8421504,
+  "minecraft:lava": 16711680,
+  "minecraft:tallgrass": 65280,
+  "minecraft:dirt": 6697728,
+  "minecraft:red_flower": 16711680,
+  "minecraft:yellow_flower": 16776960,
+  "ChromatiCraft:chromaticraft_block_decay": 26112,
+  "minecraft:sand": 16777113
+}
