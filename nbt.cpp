@@ -60,6 +60,7 @@ void parseTag(string name_in, uint8_t tag, const uint8_t *nbt, int *pos, const n
   {
     uint16_t value = getint16(nbt, pos);
     if (verbose) printf("tag2 '%s' == %d / 0x%x\n", name_in.c_str(), value, value);
+    if (cb && cb->tag2) cb->tag2(cb, name_in, value);
     break;
   }
   case 3: // 32bit int
@@ -137,7 +138,7 @@ void parseTag(string name_in, uint8_t tag, const uint8_t *nbt, int *pos, const n
       uint32_t value = getint32(nbt, pos);
       if (verbose) printf(" %d ", value);
     }
-    puts("");
+    if (verbose) puts("");
     break;
   }
   case 12: // long array
@@ -148,7 +149,7 @@ void parseTag(string name_in, uint8_t tag, const uint8_t *nbt, int *pos, const n
       uint64_t value = getint64(nbt, pos);
       if (verbose) printf(" 0x%lx", value);
     }
-    puts("");
+    if (verbose) puts("");
     break;
   }
   default:

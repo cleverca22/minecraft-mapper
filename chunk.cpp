@@ -1,7 +1,10 @@
 #include <string.h>
+#include <arpa/inet.h>
 #include <stdio.h>
 
 #include "chunk.h"
+
+using namespace std;
 
 Chunk::Chunk() {
   for (int i=0; i<16; i++) {
@@ -29,6 +32,19 @@ void Chunk::updateBlocks(int section_num, const uint8_t data[16][16][16]) {
         old &= 0xff00;
         old |= data[y][z][x];
         section->blocks[x][y][z] = old;
+        //if ((x==6) && (z==9)) printf("%d %d %d, %d/%x\n", x, (section_num*16)+y, z, data[y][x][z], data[y][x][z]);
+      }
+    }
+  }
+}
+
+void Chunk::updateBlocks16(int section_num, const uint16_t data[16][16][16]) {
+  ensureSection(section_num);
+  Section *section = sections[section_num];
+  for (int x=0; x<16; x++) {
+    for (int y=0; y<16; y++) {
+      for (int z=0; z<16; z++) {
+        section->blocks[x][y][z] = ntohs(data[y][z][x]);
         //if ((x==6) && (z==9)) printf("%d %d %d, %d/%x\n", x, (section_num*16)+y, z, data[y][x][z], data[y][x][z]);
       }
     }
@@ -68,7 +84,7 @@ void Chunk::printSection(int section_num) {
   }
 }
 
-void Chunk::getTopMostBlocks(uint16_t toplayer[16][16]) {
+void Chunk::getTopMostBlocks(uint16_t toplayer[16][16], const set<string> &ignoredBlocks, const std::map<uint32_t,std::string> &blockMap) {
   //puts("checking for top-most");
   for (int section_num=0; section_num<16; section_num++) {
     //printf("in section %d\n", section_num);
@@ -79,6 +95,12 @@ void Chunk::getTopMostBlocks(uint16_t toplayer[16][16]) {
       for (int x=0; x<16; x++) {
         for (int y=0; y<16; y++) {
           if (section->blocks[x][y][z] == 0) continue; // ignore air
+
+          auto name = blockMap.find(section->blocks[x][y][z]);
+          if (name != blockMap.end()) {
+            auto ignored = ignoredBlocks.find(name->second);
+            if (ignored != ignoredBlocks.end()) continue;
+          }
 
           toplayer[x][z] = section->blocks[x][y][z];
         }

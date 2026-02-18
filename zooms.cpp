@@ -73,7 +73,7 @@ int shrink_tile(string path, int xin, int yin, int tilex, int tiley, Image &inpu
   return ret;
 }
 
-void regen_zooms(string path) {
+void regen_zooms(string path, bool verbose) {
   const int maxzoom = 17;
   char buffer[64];
 
@@ -87,7 +87,7 @@ void regen_zooms(string path) {
       for (int y=(-512>>steps); y<(512>>steps); y++) {
         int xin = x<<1;
         int yin = y<<1;
-        printf("%d,%d  %d,%d\n", x, y, xin, yin);
+        //printf("%d,%d  %d,%d\n", x, y, xin, yin);
 
         int parts = 0;
 

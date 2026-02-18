@@ -11,5 +11,17 @@
   "minecraft:red_flower": 16711680,
   "minecraft:yellow_flower": 16776960,
   "ChromatiCraft:chromaticraft_block_decay": 26112,
-  "minecraft:sand": 16777113
+  "minecraft:sand": 16777113,
+  "BiomesOPlenty:foliage": 32768,
+  "BiomesOPlenty:leaves2": 32768,
+  "Natura:floraleaves": 32768,
+  "BiomesOPlenty:colorizedLeaves1":32768,
+  "minecraft:snow_layer": 16777215,
+  "minecraft:farmland": 4728333,
+  "chisel:cobblestone": 7960953,
+  "minecraft:cobblestone": 8223869,
+  "minecraft:stained_hardened_clay": 9853759,
+  "minecraft:ice": 10070469,
+  "BuildCraft|Energy:blockOil": 0,
+  "gregtech:gt.blockgranites": 0
 }

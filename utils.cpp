@@ -18,10 +18,10 @@ int load_png(const filesystem::path &path, Image &img) {
   image.format = PNG_FORMAT_RGBA;
 
   if (png_image_begin_read_from_file(&image, path.c_str())) {
-    puts("load worked");
+    //puts("load worked");
     //assert(PNG_IMAGE_SIZE(image) == (512*512*3));
     if (png_image_finish_read(&image, NULL, img.bitmap, 0, NULL) != 0) {
-      puts("finish worked");
+      //puts("finish worked");
       return 1;
     } else {
       puts("finish failed");
@@ -42,12 +42,12 @@ void write_png(const filesystem::path &path, const Image &img) {
   image.width = 512;
   image.height = 512;
 
-  printf("output %s\n", path.c_str());
+  //printf("output %s\n", path.c_str());
   int ret = png_image_write_to_file(&image, path.c_str(), false, img.bitmap, 512*4, NULL);
-  printf("ret %d\n", ret);
+  //printf("ret %d\n", ret);
 }
 
-void to_file(const filesystem::path &path, void *buffer, int size) {
+void to_file(const filesystem::path &path, const void *buffer, int size) {
   FILE *fd = fopen(path.c_str(), "wb");
   fwrite(buffer, size, 1, fd);
   fclose(fd);
@@ -118,7 +118,7 @@ uint64_t get_own_age() {
 
 bool need_update(const filesystem::path &input, const filesystem::path &output) {
   uint64_t output_age = get_file_age(output);
-  printf("%ld %ld\n", own_age, output_age);
+  //printf("%ld %ld\n", own_age, output_age);
   if (own_age > output_age) return true;
 
   uint64_t input_age = get_file_age(input);

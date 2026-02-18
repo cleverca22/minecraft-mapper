@@ -5,6 +5,7 @@
 #include <map>
 #include <nlohmann/json.hpp>
 #include <png.h>
+#include <set>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -21,6 +22,8 @@
 
 using namespace std;
 using json = nlohmann::json;
+
+static int total_regions = 0, total_chunks = 0;
 
 typedef struct {
   uint32_t chunk_offsets[32][32];
@@ -45,6 +48,8 @@ typedef struct {
 
 typedef struct {
   map<uint32_t,string> blocks;
+  map<string, uint32_t> missing_colors;
+  set<string> transparent_blocks;
   json color_table;
 } level_state;
 
@@ -187,7 +192,7 @@ uint32_t swap_color(uint32_t color) {
   return (b << 16) | (g << 8) | r;
 }
 
-void draw_top_layer_to_bitmap(uint16_t toplayer[16][16], int xstart, int zstart, Image &region_image, const level_state &lstate, int regionx, int regionz) {
+void draw_top_layer_to_bitmap(uint16_t toplayer[16][16], int xstart, int zstart, Image &region_image, level_state &lstate, int regionx, int regionz) {
   for (int z=0; z<16; z++) {
     for (int x=0; x<16; x++) {
       uint16_t block = toplayer[x][z];
@@ -201,7 +206,14 @@ void draw_top_layer_to_bitmap(uint16_t toplayer[16][16], int xstart, int zstart,
       uint32_t raw_color = 0xffffff;
       if (color != lstate.color_table.end()) raw_color = swap_color(*color);
       else {
-        printf("chunk xz %d %d, %d %d, %d, %s\n", x, z, xstart+x + (regionx<<9), zstart+z + (regionz << 9), block, block_name.c_str());
+        //printf("chunk xz %d %d, %d %d, %d, %s\n", x, z, xstart+x + (regionx<<9), zstart+z + (regionz << 9), block, block_name.c_str());
+
+        auto miss = lstate.missing_colors.find(block_name);
+        if (miss == lstate.missing_colors.end()) {
+          lstate.missing_colors[block_name] = 1;
+        } else {
+          lstate.missing_colors[block_name]++;
+        }
       }
 
       raw_color = 0xff000000 | raw_color;
@@ -209,6 +221,14 @@ void draw_top_layer_to_bitmap(uint16_t toplayer[16][16], int xstart, int zstart,
       region_image.setPixel(xstart + x, zstart + z, raw_color);
     }
   }
+}
+
+void tag2_draw_map(const nbt_callbacks *, const std::string key, uint16_t value) {
+  printf("%s == %d\n", key.c_str(), value);
+}
+
+void tag3_draw_map(const nbt_callbacks *, const std::string key, uint32_t value) {
+  printf("%s == %d\n", key.c_str(), value);
 }
 
 void tag7_draw_map(const nbt_callbacks *cb, string key, int size, const uint8_t *data) {
@@ -228,6 +248,9 @@ void tag7_draw_map(const nbt_callbacks *cb, string key, int size, const uint8_t 
     } else if (strcmp(remain, "/Add") == 0) {
       //printf("found /Add for section %d, len %d\n", section, size);
       s->chunk.updateAddBlocks(section, (const uint8_t(*)[16][8])data);
+    } else if (strcmp(remain, "/Blocks16") == 0) {
+      //printf("found blocks16 for section %d, len %d\n", section, size);
+      s->chunk.updateBlocks16(section, (const uint16_t(*)[16][16])data);
     } else {
       //printf("rem %s %d\n", remain, size);
     }
@@ -246,6 +269,8 @@ void tag8_draw_map(const nbt_callbacks *, const std::string key, const std::stri
   } else {
     //printf("%s unhandled\n", key.c_str());
   }
+
+  //printf("%s == %s\n", key.c_str(), value.c_str());
 }
 
 filesystem::path make_png_name(filesystem::path outpath, int x, int z) {
@@ -255,11 +280,12 @@ filesystem::path make_png_name(filesystem::path outpath, int x, int z) {
   return outpath.append("17").append(outname);
 }
 
-void parse_region(const filesystem::path &region_path, signed int x, signed int z, const level_state &lstate, const filesystem::path &outpath) {
+void parse_region(const filesystem::path &region_path, signed int x, signed int z, level_state &lstate, const filesystem::path &outpath) {
   filesystem::path png_out = make_png_name(outpath, x, z);
+  const bool verbose = false;
 
 #if 0
-  if ((x != 3) || (z != -7)) {
+  if ((x != 0) || (z != 0)) {
     puts("skipping region");
     return;
   }
@@ -276,6 +302,17 @@ void parse_region(const filesystem::path &region_path, signed int x, signed int 
   Image region_image;
 
   FILE *fd = fopen(region_path.c_str(), "r");
+  fseek(fd, 0, SEEK_END);
+  uint64_t region_size_bytes = ftell(fd);
+  fseek(fd, 0, SEEK_SET);
+
+  if (region_size_bytes == 0) {
+    fclose(fd);
+    return;
+  }
+
+  total_regions++;
+
   region_header *header = (region_header*)malloc(sizeof(*header));
   fread(header, sizeof(*header), 1, fd);
 
@@ -285,6 +322,8 @@ void parse_region(const filesystem::path &region_path, signed int x, signed int 
   nbt_callbacks chunk_callbacks = {
     .state = &s,
   };
+  //chunk_callbacks.tag2 = &tag2_draw_map;
+  //chunk_callbacks.tag3 = &tag3_draw_map;
   chunk_callbacks.tag7 = &tag7_draw_map;
   chunk_callbacks.tag8 = &tag8_draw_map;
 
@@ -313,11 +352,13 @@ void parse_region(const filesystem::path &region_path, signed int x, signed int 
         continue;
       }
 
+      total_chunks++;
+
       //snprintf(outname, 60, "chunks/%d,%d.zlib", (x<<5) | xoff, (z<<5) | zoff);
 
       uint32_t lastmod = ntohl(header->chunk_lastmods[zoff][xoff]);
       string name = region_path.filename().string();
-      printf("%s %d %d, x %d<->%d z %d<->%d == off %d sz %d %d\n", name.c_str(), xoff, zoff, xpos, xpos+15, zpos, zpos+15, offset, length, lastmod);
+      if (verbose) printf("%s %d %d, x %d<->%d z %d<->%d == off %d sz %d %d\n", name.c_str(), xoff, zoff, xpos, xpos+15, zpos, zpos+15, offset, length, lastmod);
 
       void *raw_chunk = malloc(length);
       fseek(fd, offset, SEEK_SET);
@@ -332,7 +373,7 @@ void parse_region(const filesystem::path &region_path, signed int x, signed int 
 
       //printf("dd if=\"%s\" of=extract bs=1 count=%d skip=%d\n", path.c_str(), actual_length-1, offset+5);
 
-      const int uncomp_size = 1024*1024;
+      const int uncomp_size = 1024*1024 * 3;
       void *uncompressed = malloc(uncomp_size);
       memset(uncompressed, 0x55, uncomp_size);
 
@@ -346,7 +387,7 @@ void parse_region(const filesystem::path &region_path, signed int x, signed int 
       if (uncompressed_size > 0) {
         parseNBT((const unsigned char *)uncompressed, uncompressed_size, &chunk_callbacks, false);
         fill_entire_chunk(region_image, xoff << 4, zoff << 4, 0);
-        s.chunk.getTopMostBlocks(s.toplayer);
+        s.chunk.getTopMostBlocks(s.toplayer, lstate.transparent_blocks, lstate.blocks);
         draw_top_layer_to_bitmap(s.toplayer, xoff << 4, zoff << 4, region_image, lstate, x, z);
         //if ((xoff == 28) && (zoff == 16)) {
         //  s.chunk.printSection(3);
@@ -355,9 +396,10 @@ void parse_region(const filesystem::path &region_path, signed int x, signed int 
         //snprintf(outname, 60, "chunks/%d,%d.good", (x<<5) | xoff, (z<<5) | zoff);
         //to_file(outname, uncompressed, uncompressed_size);
       } else {
+        char outname[256];
         fill_entire_chunk(region_image, xoff << 4, zoff << 4, 0xff0000ff);
-        //snprintf(outname, 60, "chunks/%d,%d.bad", (x<<5) | xoff, (z<<5) | zoff);
-        //to_file(outname, uncompressed, uncomp_size);
+        snprintf(outname, 60, "chunks/%d,%d.bad", (x<<5) | xoff, (z<<5) | zoff);
+        to_file(outname, uncompressed, uncomp_size);
       }
 
       free(raw_chunk);
@@ -365,13 +407,14 @@ void parse_region(const filesystem::path &region_path, signed int x, signed int 
     }
   }
 
+  //puts("writing png");
   write_png(png_out, region_image);
 
   free(header);
   fclose(fd);
 }
 
-void region_loop(const filesystem::path &path, const string &name, const level_state &lstate, const filesystem::path &outpath) {
+void region_loop(const filesystem::path &path, const string &name, level_state &lstate, const filesystem::path &outpath) {
   filesystem::directory_iterator iterator{path};
 
   for (auto &ent : iterator) {
@@ -414,12 +457,13 @@ int main(int argc, char **argv) {
   char *savepath = NULL;
   const char *outpath = ".";
   bool watch_dir = false;
+  bool bobby = false;
 
   level_state lstate;
   own_age = get_own_age();
 
   int opt;
-  while ((opt = getopt(argc, argv, "p:o:w")) != -1) {
+  while ((opt = getopt(argc, argv, "p:o:wb")) != -1) {
     switch (opt) {
     case 'p':
       savepath = optarg;
@@ -430,6 +474,9 @@ int main(int argc, char **argv) {
     case 'w':
       watch_dir = true;
       break;
+    case 'b':
+      bobby = true;
+      break;
     }
   }
 
@@ -439,15 +486,29 @@ int main(int argc, char **argv) {
   }
 
   lstate.color_table = json::parse(readFile("colors.json"));
+  lstate.transparent_blocks = json::parse(readFile("transparent_blocks.json"));
 
-  parseLevel(savepath, lstate);
+  if (!bobby) {
+    parseLevel(savepath, lstate);
+  }
 
   if (watch_dir) {
     event_loop(savepath, outpath);
   } else {
-    region_loop(string(savepath) + "/region/", "Overworld", lstate, outpath);
-    regen_zooms(outpath);
+    if (bobby) {
+      region_loop(string(savepath) + "/overworld/", "Overworld", lstate, outpath);
+    } else {
+      region_loop(string(savepath) + "/region/", "Overworld", lstate, outpath);
+      //region_loop(string(savepath) + "DIM-1/region/", "Nether", lstate, outpath);
+    }
+    regen_zooms(outpath, false);
   }
+
+  json obj = lstate.missing_colors;
+  string obj_json = obj.dump();
+  to_file("missing_colors.json", obj_json.c_str(), obj_json.length());
+
+  printf("processed %d chunks in %d regions\n", total_chunks, total_regions);
 
 
   return 0;

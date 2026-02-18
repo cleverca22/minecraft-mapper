@@ -7,7 +7,7 @@
 
 extern uint64_t own_age;
 
-void to_file(const std::filesystem::path &path, void *buffer, int size);
+void to_file(const std::filesystem::path &path, const void *buffer, int size);
 std::string readFile(const std::filesystem::path &path);
 int decompress(const void *input, int insize, void *output, int outsize);
 

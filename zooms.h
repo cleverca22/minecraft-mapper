@@ -2,4 +2,4 @@
 
 #include <string>
 
-void regen_zooms(std::string path);
+void regen_zooms(std::string path, bool verbose);
