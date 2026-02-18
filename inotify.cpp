@@ -20,8 +20,8 @@ void Inotify::blockUntilEvent() {
   inotify_event *buffer = (inotify_event*)malloc(sizeof(inotify_event) + NAME_MAX);
   int size = read(ifd, buffer, sizeof(inotify_event) + NAME_MAX);
 
-#if 1
-  printf("wd: %d, mask: 0x%x, cookie: 0x%x, len: %d\n", buffer->wd, buffer->mask, buffer->cookie, buffer->len);
+#if 0
+  printf("\nwd: %d, mask: 0x%x, cookie: 0x%x, len: %d\n", buffer->wd, buffer->mask, buffer->cookie, buffer->len);
   if ((buffer->len > 0) && (buffer->len < NAME_MAX)) {
     printf("name: %s\n", buffer->name);
   }

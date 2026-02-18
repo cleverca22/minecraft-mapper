@@ -1,5 +1,8 @@
 #include "region.h"
 
+#include <assert.h>
+#include <unistd.h>
+
 using namespace std;
 
 pair<int, int> parse_region_name(string name) {
@@ -16,4 +19,28 @@ pair<int, int> parse_region_name(string name) {
     return {x, z};
   }
   return {0,0};
+}
+
+Region::Region(filesystem::path savepath, int dimension, int x, int z) : x(x), z(z), header(NULL) {
+  char buffer[32];
+  auto region_path = savepath;
+  if (dimension != 0) {
+    snprintf(buffer, 30, "DIM%d", dimension);
+    region_path = region_path / buffer;
+  }
+  region_path = region_path / "region";
+
+  snprintf(buffer, 30, "r.%d.%d.mca", x, z);
+  region_path = region_path / buffer;
+
+  printf("%s\n", region_path.c_str());
+  fd = fopen(region_path.c_str(), "r");
+  assert(fd);
+}
+
+void Region::reload_header() {
+  if (!header) header = (region_header*)malloc(sizeof(*header));
+  int hnd = fileno(fd);
+  int size = pread(hnd, header, sizeof(*header), 0);
+  assert(size == sizeof(*header));
 }

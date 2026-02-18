@@ -11,7 +11,7 @@ chunk-save-logger: chunk-save-logger.o inotify.o region.o
 %.deps.o: %.cpp
 	$(CXX) -o $@ -M $<
 
-biome-thingy.o: biome-thingy.cpp nbt.h utils.h chunk.h section.h zooms.h image.h event_loop.h
+biome-thingy.o: biome-thingy.cpp nbt.h utils.h chunk.h section.h zooms.h image.h event_loop.h region.h
 
 chunk-save-logger.o: chunk-save-logger.cpp inotify.h region.h
 

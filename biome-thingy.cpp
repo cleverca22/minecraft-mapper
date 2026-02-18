@@ -13,22 +13,18 @@
 #include <unistd.h>
 #include <zlib.h>
 
-#include "nbt.h"
-#include "utils.h"
 #include "chunk.h"
-#include "zooms.h"
-#include "image.h"
 #include "event_loop.h"
+#include "image.h"
+#include "nbt.h"
+#include "region.h"
+#include "utils.h"
+#include "zooms.h"
 
 using namespace std;
 using json = nlohmann::json;
 
 static int total_regions = 0, total_chunks = 0;
-
-typedef struct {
-  uint32_t chunk_offsets[32][32];
-  uint32_t chunk_lastmods[32][32];
-} region_header;
 
 typedef struct {
   Image *region_image;
