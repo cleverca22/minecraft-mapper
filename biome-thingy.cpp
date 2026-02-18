@@ -75,6 +75,10 @@ void parseAndLoadNBT(string path, const nbt_callbacks *cb) {
   int ret = inflateInit2(&strm, 16 + MAX_WBITS);
   assert(ret == Z_OK);
   FILE *fd = fopen(path.c_str(), "r");
+  if (!fd) {
+    printf("failed to open %s\n", path.c_str());
+  }
+  assert(fd);
 
   unsigned char buffer[8192];
   unsigned char *outbuf = (unsigned char*)malloc(1024*1024*16);

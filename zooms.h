@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <string>
 
-void regen_zooms(std::string path, bool verbose);
+void regen_zooms(const std::filesystem::path &path, bool verbose);

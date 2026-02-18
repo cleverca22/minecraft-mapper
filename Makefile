@@ -1,12 +1,12 @@
 all: biome-thingy chunk-save-logger
 
 biome-thingy: biome-thingy.o nbt.o utils.o chunk.o zooms.o image.o event_loop.o region.o inotify.o
-	$(CXX) -o $@ $^ -Wall -lz -lpng -g
+	$(CXX) -o $@ $^ -Wall -lz -lpng
 
 chunk-save-logger: chunk-save-logger.o inotify.o region.o
 	$(CXX) -o $@ $^ -Wall -g
 %.o: %.cpp
-	$(CXX) -o $@ $< -Wall -c -g -std=c++20
+	$(CXX) -o $@ $< -Wall -c -std=c++20 -O3
 
 %.deps.o: %.cpp
 	$(CXX) -o $@ -M $<
