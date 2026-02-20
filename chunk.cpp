@@ -86,14 +86,17 @@ void Chunk::printSection(int section_num) {
 
 void Chunk::getTopMostBlocks(uint16_t toplayer[16][16], const set<string> &ignoredBlocks, const std::map<uint32_t,std::string> &blockMap) {
   //puts("checking for top-most");
-  for (int section_num=0; section_num<16; section_num++) {
-    //printf("in section %d\n", section_num);
-    Section *section = sections[section_num];
-    if (!section) continue;
 
+  for (int x=0; x<16; x++) {
     for (int z=0; z<16; z++) {
-      for (int x=0; x<16; x++) {
-        for (int y=0; y<16; y++) {
+      //printf("%d,%d\n", x, z);
+      for (int section_num=15; section_num>=0; section_num--) {
+        //printf("in section %d\n", section_num);
+        Section *section = sections[section_num];
+        if (!section) continue;
+
+        for (int y=15; y>=0; y--) {
+          //printf("sect %d y %d\n", section_num, y);
           if (section->blocks[x][y][z] == 0) continue; // ignore air
 
           auto name = blockMap.find(section->blocks[x][y][z]);
@@ -103,8 +106,11 @@ void Chunk::getTopMostBlocks(uint16_t toplayer[16][16], const set<string> &ignor
           }
 
           toplayer[x][z] = section->blocks[x][y][z];
+          goto skip;
         }
       }
+skip:
+      ;
     }
   }
   //puts("done finding top-most");

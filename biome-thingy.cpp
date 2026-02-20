@@ -375,7 +375,7 @@ void parse_region(const filesystem::path &region_path, signed int x, signed int 
 
       const int uncomp_size = 1024*1024 * 3;
       void *uncompressed = malloc(uncomp_size);
-      memset(uncompressed, 0x55, uncomp_size);
+      //memset(uncompressed, 0x55, uncomp_size);
 
       //FILE *chunkout = fopen(outname, "wb");
       //fwrite(raw_chunk+5, actual_length-1, 1, chunkout);
