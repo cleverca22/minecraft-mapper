@@ -203,7 +203,7 @@ void draw_top_layer_to_bitmap(uint16_t toplayer[16][16], int xstart, int zstart,
 
 
       auto color = lstate.color_table.find(block_name);
-      uint32_t raw_color = 0xffffff;
+      uint32_t raw_color = ( ((xstart + x) & 0xff) << 8) | ( ((zstart + z) & 0xff) << 0);
       if (color != lstate.color_table.end()) raw_color = swap_color(*color);
       else {
         //printf("chunk xz %d %d, %d %d, %d, %s\n", x, z, xstart+x + (regionx<<9), zstart+z + (regionz << 9), block, block_name.c_str());
