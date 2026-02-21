@@ -144,7 +144,7 @@ void regen_zooms(const filesystem::path &path, bool verbose) {
     for (auto &ent : iterator) {
       auto &p = ent.path();
       auto coord = parse_tile_name(p.stem());
-      pair<int,int> parent_coord = { coord.first/2, coord.second/2 };
+      pair<int,int> parent_coord = { coord.first >> 1, coord.second >> 1 };
       todo_list.insert(parent_coord);
     }
 
