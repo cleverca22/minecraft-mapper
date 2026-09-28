@@ -6,6 +6,9 @@ biome-thingy: biome-thingy.o nbt.o utils.o chunk.o zooms.o image.o event_loop.o 
 chunk-save-logger: chunk-save-logger.o inotify.o region.o
 	$(CXX) -o $@ $^ -Wall -g
 
+pollution-exporter: pollution-exporter.o utils.o inotify.o
+	$(CXX) -o $@ $^ -Wall -g -lz -lpng
+
 %.o: %.cpp
 	$(CXX) -o $@ $< -Wall -c -std=c++20 -g -O3 -fno-inline-functions
 
