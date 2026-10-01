@@ -13,12 +13,13 @@ std::pair<int, int> parse_region_name(std::string name);
 
 class Region {
 public:
-  Region(std::filesystem::path savepath, int dimension, int x, int z);
+  Region(std::filesystem::path dimDir, int dimension, int x, int z);
   ~Region();
 
   void reload_header();
 
   region_header *header;
+  int dim;
 private:
   int x, z;
   FILE *fd;

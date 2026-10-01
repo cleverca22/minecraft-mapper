@@ -21,14 +21,9 @@ pair<int, int> parse_region_name(string name) {
   return {0,0};
 }
 
-Region::Region(filesystem::path savepath, int dimension, int x, int z) : x(x), z(z), header(NULL) {
+Region::Region(filesystem::path dimDir, int dimension, int x, int z) : x(x), z(z), header(NULL), dim(dimension) {
   char buffer[32];
-  auto region_path = savepath;
-  if (dimension != 0) {
-    snprintf(buffer, 30, "DIM%d", dimension);
-    region_path = region_path / buffer;
-  }
-  region_path = region_path / "region";
+  auto region_path = dimDir / "region";
 
   snprintf(buffer, 30, "r.%d.%d.mca", x, z);
   region_path = region_path / buffer;

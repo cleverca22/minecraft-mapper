@@ -4,8 +4,10 @@
 #include <arpa/inet.h>
 #include <string>
 #include <unistd.h>
+#include "utils.h"
 
 using namespace std;
+using namespace filesystem;
 
 class SaveWatcher : public InotifyWatcher {
 public:
@@ -32,7 +34,7 @@ void SaveWatcher::eventOccured(uint32_t mask) {
         if (lastmod_loaded && (lastmod > lastmods[xoff][zoff])) {
           int block_x = region_block_x | (xoff << 4);
           int block_z = region_block_z | (zoff << 4);
-          printf("%d %d saved, last modified %d ago\n", block_x, block_z, lastmod - lastmods[xoff][zoff]);
+          printf("%d / %d %d saved, last modified %d ago\n", r.dim, block_x, block_z, lastmod - lastmods[xoff][zoff]);
         }
         lastmods[xoff][zoff] = lastmod;
       }
@@ -57,15 +59,19 @@ int main(int argc, char **argv) {
 
   Inotify in;
   //in.addWatch(savepath / "region", IN_CLOSE_WRITE | IN_CREATE | IN_OPEN | IN_MODIFY, NULL);
-  filesystem::directory_iterator iterator{ savepath / "region" };
-  for (auto &ent : iterator) {
-    auto &p = ent.path();
-    if (!ent.is_directory()) {
-      auto coords = parse_region_name(p.stem().string());
-      SaveWatcher *w = new SaveWatcher(savepath, 0, coords.first, coords.second);
-      in.addWatch(p, IN_CLOSE_WRITE | IN_CREATE | IN_OPEN | IN_MODIFY, w);
+  for_each_dimension(savepath, [&in](std::filesystem::path dimDir, int dim) -> void {
+    path regionDir = dimDir / "region";
+    if (!exists(regionDir)) return;
+    filesystem::directory_iterator iterator{ regionDir };
+    for (auto &ent : iterator) {
+      auto &p = ent.path();
+      if (!ent.is_directory()) {
+        auto coords = parse_region_name(p.stem().string());
+        SaveWatcher *w = new SaveWatcher(dimDir, dim, coords.first, coords.second);
+        in.addWatch(p, IN_CLOSE_WRITE | IN_CREATE | IN_OPEN | IN_MODIFY, w);
+      }
     }
-  }
+  });
   while (true) {
     in.blockUntilEvent();
   }

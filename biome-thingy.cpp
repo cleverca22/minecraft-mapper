@@ -1,4 +1,6 @@
 #include <arpa/inet.h>
+#include <list>
+#include <algorithm>
 #include <assert.h>
 #include <dirent.h>
 #include <iostream>
@@ -27,23 +29,40 @@ using json = nlohmann::json;
 static int total_regions = 0, total_chunks = 0;
 
 typedef struct {
+  uint32_t item_search_id;
+  uint32_t item_search_damage;
+} searchSpec;
+
+typedef struct {
+  uint32_t id;
+  uint32_t damage;
+  int32_t x,y,z;
+  int dim;
+} possibleMatch;
+
+typedef struct {
   Image *region_image;
   int xoff;
   int zoff;
   uint16_t toplayer[16][16];
   Chunk chunk;
+  searchSpec *findMe;
+  map<uint32_t,possibleMatch> possibleMatches;
+  set<tuple<int32_t,int8_t,int32_t>> item_search_results;
 } chunk_parse_state;
 
 typedef struct {
-  uint32_t pending_key;
+  int32_t pending_key;
   string pending_value;
   bool has_key;
   bool has_value;
-  map<uint32_t,string> blocks;
+  map<int32_t,string> blocks;
+  map<int32_t,string> items;
 } level_parse_state;
 
 typedef struct {
-  map<uint32_t,string> blocks;
+  map<int32_t,string> blocks;
+  map<int32_t,string> items;
   map<string, uint32_t> missing_colors;
   set<string> transparent_blocks;
   json color_table;
@@ -122,18 +141,20 @@ int get_item_index(string key) {
 
 void check_key(level_parse_state *s) {
   if (s->has_key && s->has_value) {
-    uint32_t key = s->pending_key;
+    int32_t key = s->pending_key;
     string value = s->pending_value;
     s->has_key = s->has_value = false;
     if (value[0] == 1) { // block
       string v = value.substr(1);
       s->blocks[key] = v;
     } else if (value[0] == 2) { // item
+      string v = value.substr(1);
+      s->items[key] = v;
     }
   }
 }
 
-void level_tag3(const nbt_callbacks *cb, const string key, uint32_t value) {
+void level_tag3(const nbt_callbacks *cb, const string key, int32_t value) {
   int index = get_item_index(key);
   if (index == -1) return;
   //printf("tag3 %s %d\n", key.c_str(), value);
@@ -171,9 +192,15 @@ void parseLevel(string root, level_state &state_out) {
   for (const auto &n : s.blocks) {
     uint32_t blockid = n.first;
     string block_name = n.second;
-    printf("%d %s\n", blockid, block_name.c_str());
+    //printf("%d %s\n", blockid, block_name.c_str());
+  }
+  for (const auto &n : s.items) {
+    uint32_t itemid = n.first;
+    string item_name = n.second;
+    printf("%d %s\n", itemid, item_name.c_str());
   }
   state_out.blocks = s.blocks;
+  state_out.items = s.items;
 }
 
 static void fill_entire_chunk(Image &img, int xstart, int ystart, uint32_t color) {
@@ -223,12 +250,39 @@ void draw_top_layer_to_bitmap(uint16_t toplayer[16][16], int xstart, int zstart,
   }
 }
 
-void tag2_draw_map(const nbt_callbacks *, const std::string key, uint16_t value) {
-  printf("%s == %d\n", key.c_str(), value);
+void tag2_draw_map(const nbt_callbacks *cb, const std::string key, uint16_t value) {
+  chunk_parse_state *s = (chunk_parse_state*)cb->state;
+  //printf("%s == %d\n", key.c_str(), value);
+  regex ae2_upgrade_patt("^/Level/TileEntities/([0-9]+)/extra:[0-9]+/upgrades/#[0-9]+/(id|Damage)$");
+  smatch matches;
+  if (regex_search(key, matches, ae2_upgrade_patt)) {
+    uint32_t te_index = atoi(matches[1].str().c_str());
+    string key = matches[2];
+    if (key == "id") {
+      s->possibleMatches[te_index].id = value;
+    } else if (key == "Damage") {
+      s->possibleMatches[te_index].damage = value;
+    }
+  }
 }
 
-void tag3_draw_map(const nbt_callbacks *, const std::string key, uint32_t value) {
-  printf("%s == %d\n", key.c_str(), value);
+void tag3_draw_map(const nbt_callbacks *cb, const std::string key, int32_t value) {
+  //printf("%s == %d\n", key.c_str(), value);
+  chunk_parse_state *s = (chunk_parse_state*)cb->state;
+  regex te_coord_patt("^/Level/TileEntities/([0-9]+)/(x|y|z)$");
+  smatch matches;
+
+  if (regex_search(key, matches, te_coord_patt)) {
+    uint32_t te_index = atoi(matches[1].str().c_str());
+    string key = matches[2];
+    if (key == "x") {
+      s->possibleMatches[te_index].x = value;
+    } else if (key == "y") {
+      s->possibleMatches[te_index].y = value;
+    } else if (key == "z") {
+      s->possibleMatches[te_index].z = value;
+    }
+  }
 }
 
 void tag7_draw_map(const nbt_callbacks *cb, string key, int size, const uint8_t *data) {
@@ -280,7 +334,7 @@ filesystem::path make_png_name(filesystem::path outpath, int x, int z) {
   return outpath.append("17").append(outname);
 }
 
-void parse_region(const filesystem::path &region_path, signed int x, signed int z, level_state &lstate, const filesystem::path &outpath) {
+void parse_region(const filesystem::path &region_path, int dim, signed int x, signed int z, level_state &lstate, const filesystem::path &outpath, searchSpec *findMe, list<possibleMatch> &found_blocks) {
   filesystem::path png_out = make_png_name(outpath, x, z);
   const bool verbose = false;
 
@@ -318,12 +372,13 @@ void parse_region(const filesystem::path &region_path, signed int x, signed int 
 
   chunk_parse_state s = {
     .region_image = &region_image,
+    .findMe = findMe,
   };
   nbt_callbacks chunk_callbacks = {
     .state = &s,
   };
-  //chunk_callbacks.tag2 = &tag2_draw_map;
-  //chunk_callbacks.tag3 = &tag3_draw_map;
+  chunk_callbacks.tag2 = &tag2_draw_map;
+  chunk_callbacks.tag3 = &tag3_draw_map;
   chunk_callbacks.tag7 = &tag7_draw_map;
   chunk_callbacks.tag8 = &tag8_draw_map;
 
@@ -389,6 +444,14 @@ void parse_region(const filesystem::path &region_path, signed int x, signed int 
         fill_entire_chunk(region_image, xoff << 4, zoff << 4, 0);
         s.chunk.getTopMostBlocks(s.toplayer, lstate.transparent_blocks, lstate.blocks);
         draw_top_layer_to_bitmap(s.toplayer, xoff << 4, zoff << 4, region_image, lstate, x, z);
+        if (findMe) {
+          for (auto pm : s.possibleMatches) {
+            if (pm.second.id != findMe->item_search_id) continue;
+            if (pm.second.damage != findMe->item_search_damage) continue;
+            pm.second.dim = dim;
+            found_blocks.push_back(pm.second);
+          }
+        }
         //if ((xoff == 28) && (zoff == 16)) {
         //  s.chunk.printSection(3);
         //  s.chunk.printSection(15);
@@ -414,7 +477,7 @@ void parse_region(const filesystem::path &region_path, signed int x, signed int 
   fclose(fd);
 }
 
-void region_loop(const filesystem::path &path, const string &name, level_state &lstate, const filesystem::path &outpath) {
+void region_loop(const filesystem::path &path, int dim, level_state &lstate, const filesystem::path &outpath, searchSpec *findMe, list<possibleMatch> &foundBlocks) {
   filesystem::directory_iterator iterator{path};
 
   for (auto &ent : iterator) {
@@ -429,8 +492,8 @@ void region_loop(const filesystem::path &path, const string &name, level_state &
         string z_coord = no_r_name.substr(split_pos + 1);
         int z = atoi(z_coord.c_str());
 
-        printf("%s == %d %d, x %d<->%d, z %d<->%d\n", filename.c_str(), x, z, x << 9, (x+1) << 9, z << 9, (z+1) << 9);
-        parse_region(p, x, z, lstate, outpath);
+        //printf("%s == %d %d, x %d<->%d, z %d<->%d\n", filename.c_str(), x, z, x << 9, (x+1) << 9, z << 9, (z+1) << 9);
+        parse_region(p, dim, x, z, lstate, outpath, findMe, foundBlocks);
       }
     }
   }
@@ -455,7 +518,7 @@ void region_loop(const filesystem::path &path, const string &name, level_state &
 
 int main(int argc, char **argv) {
   char *savepath = NULL;
-  const char *outpath = ".";
+  std::filesystem::path outpath = ".";
   bool watch_dir = false;
   bool bobby = false;
 
@@ -495,13 +558,38 @@ int main(int argc, char **argv) {
   if (watch_dir) {
     event_loop(savepath, outpath);
   } else {
-    if (bobby) {
-      region_loop(string(savepath) + "/overworld/", "Overworld", lstate, outpath);
-    } else {
-      region_loop(string(savepath) + "/region/", "Overworld", lstate, outpath);
-      //region_loop(string(savepath) + "DIM-1/region/", "Nether", lstate, outpath);
+    searchSpec *findMe = NULL;
+    if (true) {
+      auto it = find_if(lstate.items.begin(), lstate.items.end(), [](pair<uint32_t,string> p) -> bool {
+        return p.second == "appliedenergistics2:item.ItemMultiMaterial";
+      });
+      if (it != lstate.items.end()) {
+        findMe = (searchSpec*)malloc(sizeof(searchSpec));
+        findMe->item_search_id = it->first;
+        findMe->item_search_damage = 53;
+      }
     }
-    regen_zooms(outpath, false);
+    list<possibleMatch> foundBlocks;
+    if (bobby) {
+      region_loop(string(savepath) + "/overworld/", 0, lstate, outpath, findMe, foundBlocks);
+    } else {
+      //region_loop(string(savepath) + "/region/", "Overworld", lstate, outpath);
+      //region_loop(string(savepath) + "/PERSONAL_DIM_183/region/", lstate, outpath);
+      //region_loop(string(savepath) + "DIM-1/region/", "Nether", lstate, outpath);
+      for_each_dimension(savepath, [outpath, &lstate, &findMe, &foundBlocks](std::filesystem::path dir, int dim) -> void {
+        string dname = dir.stem();
+        dir /= "region";
+        filesystem::path out = outpath / dname;
+        cout << dir << " " << out << endl;
+        if (!exists(dir)) return;
+        if (!exists(out)) create_directory(out);
+        region_loop(dir, dim, lstate, out, findMe, foundBlocks);
+        //regen_zooms(out, true);
+      });
+    }
+    for (auto pm : foundBlocks) {
+      printf("matches %d/%d/%d %d:%d\n", pm.x, pm.y, pm.z, pm.id, pm.damage);
+    }
   }
 
   json obj = lstate.missing_colors;

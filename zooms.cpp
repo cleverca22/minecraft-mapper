@@ -83,11 +83,11 @@ static inline void downsample_into_quadrant(const uint32_t *input, uint32_t *out
   }
 }
 
-int shrink_tile(string path, int xin, int yin, int tilex, int tiley, Image &input_buffer, Image &output_buffer, int zoom) {
+int shrink_tile(filesystem::path path, int xin, int yin, int tilex, int tiley, Image &input_buffer, Image &output_buffer, int zoom) {
   char buffer[64];
   snprintf(buffer, 60, "%d/%d,%d.png", zoom, xin + tilex, yin + tiley);
-  string input = path + buffer;
-  //cout << input << endl;
+  string input = path / buffer;
+  cout << input << endl;
 
   int ret = load_png(input, input_buffer);
 
@@ -143,14 +143,17 @@ void regen_zooms(const filesystem::path &path, bool verbose) {
     printf("generating %d from %d, steps %d\n", zoom, zoom+1, steps);
     for (auto &ent : iterator) {
       auto &p = ent.path();
+      cout << p << endl;
       auto coord = parse_tile_name(p.stem());
       pair<int,int> parent_coord = { coord.first >> 1, coord.second >> 1 };
+      printf("%d %d added\n", parent_coord.first, parent_coord.second);
       todo_list.insert(parent_coord);
     }
 
     for (auto &coord : todo_list) {
       int x = coord.first;
       int y = coord.second;
+      printf("shrinking into %d %d\n", x, y);
       int xin = x << 1;
       int yin = y << 1;
 
@@ -161,7 +164,7 @@ void regen_zooms(const filesystem::path &path, bool verbose) {
       parts += shrink_tile(path, xin, yin, 1, 0, input_buffer, output_buffer, zoom+1);
       parts += shrink_tile(path, xin, yin, 1, 1, input_buffer, output_buffer, zoom+1);
 
-      //printf("found %d sub-tiles\n", parts);
+      printf("found %d sub-tiles\n", parts);
 
       if (parts > 0) {
         snprintf(buffer, 60, "%d/%d,%d.png", zoom, x, y);

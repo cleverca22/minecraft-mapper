@@ -35,6 +35,7 @@ int load_png(const filesystem::path &path, Image &img) {
 }
 
 void write_png(const filesystem::path &path, const Image &img) {
+  if (!exists(path.parent_path())) create_directory(path.parent_path());
   png_image image;
   memset(&image, 0, sizeof(image));
   image.version = PNG_IMAGE_VERSION;
@@ -42,9 +43,9 @@ void write_png(const filesystem::path &path, const Image &img) {
   image.width = 512;
   image.height = 512;
 
-  //printf("output %s\n", path.c_str());
+  printf("output %s\n", path.c_str());
   int ret = png_image_write_to_file(&image, path.c_str(), false, img.bitmap, 512*4, NULL);
-  //printf("ret %d\n", ret);
+  printf("ret %d\n", ret);
 }
 
 void to_file(const filesystem::path &path, const void *buffer, int size) {

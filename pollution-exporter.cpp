@@ -1,8 +1,6 @@
 #include <arpa/inet.h>
 #include <assert.h>
-#include <filesystem>
 #include <iostream>
-#include <regex>
 #include <stdio.h>
 #include <string.h>
 #include <string>
@@ -13,24 +11,6 @@
 
 using namespace std;
 using namespace filesystem;
-
-template <typename F> void for_each_dimension(const path savepath, F func) {
-  filesystem::directory_iterator i{savepath};
-  regex pattern("^(DIM_SPACESTATION|DIM|PERSONAL_DIM_)([-0-9]+)$");
-  smatch matches;
-
-  func(savepath, 0);
-
-  for (auto &ent : i) {
-    auto &p = ent.path();
-    if (ent.is_directory()) {
-      const string filename = p.stem().string();
-      if (regex_search(filename, matches, pattern)) {
-        func(p, atoi(matches[2].str().c_str()));
-      }
-    }
-  }
-}
 
 template <typename F> void for_each_file_matching_pattern(const path dir, const regex pattern, F func) {
   filesystem::directory_iterator i{dir};

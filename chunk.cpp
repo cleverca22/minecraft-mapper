@@ -84,7 +84,7 @@ void Chunk::printSection(int section_num) {
   }
 }
 
-void Chunk::getTopMostBlocks(uint16_t toplayer[16][16], const set<string> &ignoredBlocks, const std::map<uint32_t,std::string> &blockMap) {
+void Chunk::getTopMostBlocks(uint16_t toplayer[16][16], const set<string> &ignoredBlocks, const std::map<int32_t,std::string> &blockMap) {
   //puts("checking for top-most");
 
   for (int x=0; x<16; x++) {
