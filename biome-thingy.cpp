@@ -48,7 +48,6 @@ typedef struct {
   Chunk chunk;
   searchSpec *findMe;
   map<uint32_t,possibleMatch> possibleMatches;
-  set<tuple<int32_t,int8_t,int32_t>> item_search_results;
 } chunk_parse_state;
 
 typedef struct {
@@ -452,6 +451,7 @@ void parse_region(const filesystem::path &region_path, int dim, signed int x, si
             found_blocks.push_back(pm.second);
           }
         }
+        s.possibleMatches.clear();
         //if ((xoff == 28) && (zoff == 16)) {
         //  s.chunk.printSection(3);
         //  s.chunk.printSection(15);
@@ -579,12 +579,13 @@ int main(int argc, char **argv) {
       for_each_dimension(savepath, [outpath, &lstate, &findMe, &foundBlocks](std::filesystem::path dir, int dim) -> void {
         string dname = dir.stem();
         dir /= "region";
-        filesystem::path out = outpath / dname;
+        filesystem::path out = outpath;
+        if (dim != 0) out /= dname;
         cout << dir << " " << out << endl;
         if (!exists(dir)) return;
         if (!exists(out)) create_directory(out);
         region_loop(dir, dim, lstate, out, findMe, foundBlocks);
-        //regen_zooms(out, true);
+        regen_zooms(out, true);
       });
     }
     for (auto pm : foundBlocks) {
