@@ -589,7 +589,7 @@ int main(int argc, char **argv) {
       });
     }
     for (auto pm : foundBlocks) {
-      printf("matches %d/%d/%d %d:%d\n", pm.x, pm.y, pm.z, pm.id, pm.damage);
+      printf("matches dim %d, %d/%d/%d %d:%d\n", pm.dim, pm.x, pm.y, pm.z, pm.id, pm.damage);
     }
   }
 
