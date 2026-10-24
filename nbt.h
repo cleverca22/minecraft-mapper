@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MPL-2.0
 #pragma once
 
 #include <stdbool.h>
@@ -7,6 +8,7 @@
 typedef struct nbt_callbacks_s nbt_callbacks;
 
 struct nbt_callbacks_s {
+  void (*tag1)(const nbt_callbacks *, const std::string key, uint8_t value);
   void (*tag2)(const nbt_callbacks *, const std::string key, uint16_t value);
   void (*tag3)(const nbt_callbacks *, const std::string key, int32_t value);
   void (*tag7)(const nbt_callbacks *, const std::string key, int size, const uint8_t *data);
